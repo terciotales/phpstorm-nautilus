@@ -51,7 +51,7 @@ rm -f ~/.local/share/nautilus-python/extensions/phpstorm-nautilus.py
 
 # Download and install the extension
 echo "Downloading newest version..."
-wget --show-progress -q -O ~/.local/share/nautilus-python/extensions/phpstorm-nautilus.py https://raw.githubusercontent.com/terciotales/phpstorm-nautilus/master/phpstorm-nautilus.py
+wget --show-progress -q -O ~/.local/share/nautilus-python/extensions/phpstorm-nautilus.py https://raw.githubusercontent.com/terciotales/phpstorm-nautilus/main/phpstorm-nautilus.py
 
 # Restart nautilus
 echo "Restarting nautilus..."

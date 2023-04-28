@@ -13,7 +13,7 @@ Para configurar o atalho, rode o seguinte comando:
 
 Ubuntu:
 ```
-wget -qO- https://raw.githubusercontent.com/terciotales/phpstorm-nautilus/master/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/terciotales/phpstorm-nautilus/main/install.sh | bash
 ```
 
 
