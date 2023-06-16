@@ -23,5 +23,5 @@ Para desinstalar o atalho, rode o seguinte comando:
 
 Ubuntu:
 ```
-rm -f ~/.local/share/nautilus-python/extensions/code-nautilus.py
+rm -f ~/.local/share/nautilus-python/extensions/phpstorm-nautilus.py
 ```
