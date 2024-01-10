@@ -1,2 +1,74 @@
-# IDE
-.idea
+### Geral
+/rascunhos/
+
+### ACT
+/.github/workflows/local-*
+/.env.act
+/.env.act-secrets
+
+### Docker
+/**/.env
+/data/
+/**/docker-compose.override.yml
+
+### Python
+/**/__pycache__/
+/**/venv/
+*.py[cod]
+*$py.class
+
+### Composer
+/**/composer.phar
+/**/vendor/
+
+### Node NPM
+/**/node_modules/
+
+### JetBrains
+## Ignorar todos os arquivos do diretório .idea ...
+/.idea/*
+
+## Exceto ...
+# Informações do Modulo principal e seus Diretórios
+!/.idea/modules.xml
+!/.idea/*.iml
+!/.idea/webResources.xml
+
+# Configurações de execução
+!/.idea/runConfigurations/
+!/.idea/php-docker-settings.xml
+
+# Escopos
+!/.idea/scopes/
+
+# Formatação do código
+!/.idea/codeStyles/codeStyleConfig.xml
+!/.idea/codeStyles/Project.xml
+!/.idea/inspectionProfiles/Project_Default.xml
+
+# Informações de linguagens e codificações
+!/.idea/encodings.xml
+!/.idea/vcs.xml
+!/.idea/misc.xml
+!/.idea/sqldialects.xml
+!/.idea/externalDependencies.xml
+!/.idea/laravel-plugin.xml
+!/.idea/jsLibraryMappings.xml
+!/.idea/jsLinters/eslint.xml
+!/.idea/prettier.xml
+!/.idea/php.xml
+!/.idea/phpunit.xml
+
+### VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Local History for Visual Studio Code
+.history/
+
+### Não organizados
+
