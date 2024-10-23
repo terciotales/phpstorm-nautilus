@@ -25,3 +25,31 @@ Ubuntu:
 ```
 rm -f ~/.local/share/nautilus-python/extensions/phpstorm-nautilus.py
 ```
+
+## English
+
+> This script creates a shortcut in the Ubuntu right-click menu to open the directory in PHPStorm.
+
+## Prerequisites
+
+* Ubuntu 20.04 or higher (not tested on earlier versions)
+* PHPStorm
+
+## Installing
+
+To set up the shortcut, run the following command:
+
+Ubuntu:
+```
+wget -qO- https://raw.githubusercontent.com/terciotales/phpstorm-nautilus/main/install.sh | bash
+```
+
+
+## Uninstalling
+
+To remove the shortcut, run the following command:
+
+Ubuntu:
+```
+rm -f ~/.local/share/nautilus-python/extensions/phpstorm-nautilus.py
+```
