@@ -30,9 +30,9 @@ phpstorm_cmd_path = shutil.which('phpstorm')
 if phpstorm_cmd_path is not None:
     # Usa o comando do PhpStorm instalado globalmente se existir
     PHPSTORM = phpstorm_cmd_path
-elif os.path.exists(f'{user_home}/.local/share/JetBrains/Toolbox/scripts/phpstorm'):
+elif os.path.exists(f'{user_home}/.local/share/JetBrains/Toolbox/apps/phpstorm/bin/phpstorm.sh'):
     # Usa o script do PhpStorm instalado pelo Jetbrains Toolbox se existir
-    PHPSTORM = f'{user_home}/.local/share/JetBrains/Toolbox/scripts/phpstorm'
+    PHPSTORM = f'{user_home}/.local/share/JetBrains/Toolbox/apps/phpstorm/bin/phpstorm.sh'
 
 class PhpStormExtension(GObject.GObject, Nautilus.MenuProvider):
 
