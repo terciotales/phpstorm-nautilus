@@ -31,8 +31,11 @@ if phpstorm_cmd_path is not None:
     # Usa o comando do PhpStorm instalado globalmente se existir
     PHPSTORM = phpstorm_cmd_path
 elif os.path.exists(f'{user_home}/.local/share/JetBrains/Toolbox/scripts/phpstorm'):
-    # Usa o script do PhpStorm instalado pelo Jetbrains Toolbox se existir
+    # Usa o comando do PhpStorm instalado pelo JetBrains Toolbox
     PHPSTORM = f'{user_home}/.local/share/JetBrains/Toolbox/scripts/phpstorm'
+elif os.path.exists(f'{user_home}/.local/share/JetBrains/Toolbox/apps/phpstorm/bin/phpstorm.sh'):
+    # Usa o comando do PhpStorm instalado pelo JetBrains Toolbox na pasta apps
+    PHPSTORM = f'{user_home}/.local/share/JetBrains/Toolbox/apps/phpstorm/bin/phpstorm.sh'
 
 class PhpStormExtension(GObject.GObject, Nautilus.MenuProvider):
 
