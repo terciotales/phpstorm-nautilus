@@ -103,4 +103,11 @@ if [[ -f "$pending_selection" ]]; then
     echo "Shortcuts saved."
 fi
 
-echo "Extension installed. Run nautilus -q, then reopen Files."
+echo "Extension installed."
+if [[ -t 0 ]]; then
+    /usr/bin/python3 "$staged" --restart-nautilus
+elif ( : < /dev/tty ) 2>/dev/null; then
+    /usr/bin/python3 "$staged" --restart-nautilus < /dev/tty
+else
+    /usr/bin/python3 "$staged" --restart-nautilus
+fi

@@ -4,9 +4,10 @@ import json
 import os
 from pathlib import Path
 import shutil
-from subprocess import Popen
+from subprocess import DEVNULL, Popen, SubprocessError, run
 import sys
 from tempfile import NamedTemporaryFile
+from time import monotonic, sleep
 from uuid import uuid4
 
 
@@ -320,7 +321,87 @@ def shortcut_cli(args):
     return 0
 
 
+def restart_nautilus():
+    if not (os.environ.get('WAYLAND_DISPLAY') or os.environ.get('DISPLAY')):
+        print('Restart postponed. No graphical session is available.')
+        return 0
+
+    from gi.repository import Gio, GLib
+
+    def nautilus_owner():
+        try:
+            return bus.call_sync(
+                'org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus',
+                'GetNameOwner', GLib.Variant('(s)', ('org.gnome.Nautilus',)), None,
+                Gio.DBusCallFlags.NO_AUTO_START, 2000, None,
+            ).unpack()[0]
+        except GLib.Error as error:
+            if Gio.DBusError.get_remote_error(error) == 'org.freedesktop.DBus.Error.NameHasNoOwner':
+                return None
+            raise
+
+    def wait_for_owner_change(previous):
+        deadline = monotonic() + 8
+        while monotonic() < deadline:
+            owner = nautilus_owner()
+            if owner != previous:
+                return owner
+            sleep(0.1)
+        raise TimeoutError('Timed out waiting for Nautilus to change state.')
+
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        owner = nautilus_owner()
+    except GLib.Error:
+        print('Restart postponed. Could not query the graphical session bus.')
+        return 0
+
+    if owner:
+        try:
+            windows = bus.call_sync(
+                owner, '/org/freedesktop/FileManager1', 'org.freedesktop.DBus.Properties',
+                'Get', GLib.Variant('(ss)', ('org.freedesktop.FileManager1', 'OpenWindowsWithLocations')),
+                None, Gio.DBusCallFlags.NO_AUTO_START, 2000, None,
+            ).unpack()[0]
+            count = len(windows)
+            window_label = 'window' if count == 1 else 'windows'
+            warning = f'Nautilus has {count} open {window_label}.' if count else ''
+        except GLib.Error:
+            warning = 'Could not check whether Nautilus has open windows.'
+
+        if warning:
+            print(f'{warning} Restarting will close all open windows and tabs.')
+            try:
+                answer = input('Restart now? [y/N] ').strip().lower() if sys.stdin.isatty() else ''
+            except (EOFError, KeyboardInterrupt):
+                answer = ''
+            if answer not in ('s', 'sim', 'y', 'yes'):
+                print('Restart postponed.')
+                return 0
+
+    try:
+        current_owner = owner
+        if owner:
+            if nautilus_owner() != owner:
+                print('Restart postponed. Nautilus changed state during confirmation.')
+                return 0
+            run(['nautilus', '--quit'], check=True, timeout=10, stdin=DEVNULL)
+            current_owner = wait_for_owner_change(owner)
+        Popen(['nautilus'], stdin=DEVNULL, stdout=DEVNULL, stderr=DEVNULL, start_new_session=True)
+        if current_owner is None:
+            wait_for_owner_change(None)
+    except (GLib.Error, OSError, SubprocessError) as error:
+        print(f'Could not restart Nautilus. {error}', file=sys.stderr)
+        return 1
+
+    print('Nautilus restarted.' if owner else 'Nautilus opened.')
+    return 0
+
+
 if __name__ == '__main__':
+    if sys.argv[1:] == ['--restart-nautilus']:
+        sys.exit(restart_nautilus())
+
     try:
         import curses
     except ImportError:
