@@ -1,4 +1,4 @@
-### Geral
+### General
 /rascunhos/
 
 ### ACT
@@ -25,28 +25,28 @@
 /**/node_modules/
 
 ### JetBrains
-## Ignorar todos os arquivos do diretório .idea ...
+## Ignore all files in .idea
 /.idea/*
 
-## Exceto ...
-# Informações do Modulo principal e seus Diretórios
+## Exceptions
+# Module and directory settings
 !/.idea/modules.xml
 !/.idea/*.iml
 !/.idea/webResources.xml
 
-# Configurações de execução
+# Run configurations
 !/.idea/runConfigurations/
 !/.idea/php-docker-settings.xml
 
-# Escopos
+# Scopes
 !/.idea/scopes/
 
-# Formatação do código
+# Code styles and inspections
 !/.idea/codeStyles/codeStyleConfig.xml
 !/.idea/codeStyles/Project.xml
 !/.idea/inspectionProfiles/Project_Default.xml
 
-# Informações de linguagens e codificações
+# Language and encoding settings
 !/.idea/encodings.xml
 !/.idea/vcs.xml
 !/.idea/misc.xml
@@ -70,5 +70,5 @@
 # Local History for Visual Studio Code
 .history/
 
-### Não organizados
+### Miscellaneous
 
