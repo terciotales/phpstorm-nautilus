@@ -1,60 +1,52 @@
 #!/bin/bash
+set -eu
 
-# Install python-nautilus
-echo "Installing python-nautilus..."
-if type "pacman" > /dev/null 2>&1
-then
-    # check if already install, else install
-    pacman -Qi python-nautilus &> /dev/null
-    if [ `echo $?` -eq 1 ]
-    then
-        sudo pacman -S --noconfirm python-nautilus
-    else
-        echo "python-nautilus is already installed"
-    fi
-elif type "apt-get" > /dev/null 2>&1
-then
-    # Find Ubuntu python-nautilus package
-    package_name="python-nautilus"
-    found_package=$(apt-cache search --names-only $package_name)
-    if [ -z "$found_package" ]
-    then
-        package_name="python3-nautilus"
-    fi
+extension_name=phpstorm-nautilus.py
+extension_dir="${XDG_DATA_HOME:-$HOME/.local/share}/nautilus-python/extensions"
+installed="$extension_dir/$extension_name"
+source_url="https://raw.githubusercontent.com/terciotales/phpstorm-nautilus/main/$extension_name"
 
-    # Check if the package needs to be installed and install it
-    installed=$(apt list --installed $package_name -qq 2> /dev/null)
-    if [ -z "$installed" ]
-    then
-        sudo apt-get install -y $package_name
-    else
-        echo "$package_name is already installed."
+fail() {
+    echo "$*" >&2
+    exit 1
+}
+
+if command -v pacman >/dev/null 2>&1; then
+    pacman -Q nautilus-python zenity >/dev/null 2>&1 ||
+        sudo pacman -S --needed --noconfirm nautilus-python zenity ||
+        fail "Could not install nautilus-python and zenity."
+elif command -v apt-get >/dev/null 2>&1; then
+    if [[ $(dpkg-query -W -f='${Status}\n' python3-nautilus zenity 2>/dev/null || true) != $'install ok installed\ninstall ok installed' ]]; then
+        sudo apt-get install -y python3-nautilus zenity ||
+            fail "Could not install python3-nautilus and zenity. Check that the packages are available in your APT repositories."
     fi
-elif type "dnf" > /dev/null 2>&1
-then
-    installed=`dnf list --installed nautilus-python 2> /dev/null`
-    if [ -z "$installed" ]
-    then
-        sudo dnf install -y nautilus-python
-    else
-        echo "nautilus-python is already installed."
-    fi
+elif command -v dnf >/dev/null 2>&1; then
+    rpm -q nautilus-python zenity >/dev/null 2>&1 ||
+        sudo dnf install -y nautilus-python zenity ||
+        fail "Could not install nautilus-python and zenity."
 else
-    echo "Failed to find python-nautilus, please install it manually."
+    fail "Unsupported package manager. Install the Nautilus Python bindings and Zenity, then follow the manual installation instructions."
 fi
 
-# Remove previous version and setup folder
-echo "Removing previous version (if found)..."
-mkdir -p ~/.local/share/nautilus-python/extensions
-rm -f ~/.local/share/nautilus-python/extensions/PHPStormExtension.py
-rm -f ~/.local/share/nautilus-python/extensions/phpstorm-nautilus.py
+command -v nautilus >/dev/null 2>&1 || fail "Nautilus is required."
 
-# Download and install the extension
-echo "Downloading newest version..."
-wget --show-progress -q -O ~/.local/share/nautilus-python/extensions/phpstorm-nautilus.py https://raw.githubusercontent.com/terciotales/phpstorm-nautilus/main/phpstorm-nautilus.py
+mkdir -p -- "$extension_dir"
+staged=$(mktemp "$extension_dir/.phpstorm-nautilus.XXXXXX")
+trap 'rm -f -- "$staged"' EXIT
+trap 'exit 1' HUP INT TERM
 
-# Restart nautilus
-echo "Restarting nautilus..."
-nautilus -q
+script_path=${BASH_SOURCE[0]:-}
+if [[ -n "$script_path" && -f "$(dirname -- "$script_path")/$extension_name" ]]; then
+    cp -- "$(dirname -- "$script_path")/$extension_name" "$staged"
+else
+    wget -nv -O "$staged" "$source_url" || fail "Could not download the extension."
+fi
 
-echo "Installation Complete"
+[[ -s "$staged" ]] || fail "The extension file is empty."
+/usr/bin/python3 -c 'import sys; compile(open(sys.argv[1], "rb").read(), sys.argv[2], "exec")' "$staged" "$extension_name" ||
+    fail "The extension file is invalid."
+
+mv -fT -- "$staged" "$installed"
+rm -f -- "$extension_dir/PHPStormExtension.py"
+
+echo "Extension installed. Run nautilus -q, then reopen Files."
