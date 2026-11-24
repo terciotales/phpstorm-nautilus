@@ -12,6 +12,15 @@ from uuid import uuid4
 
 
 NEWWINDOW = False
+DEFAULT_LANGUAGE = 'en'
+MENU_LANGUAGES = {
+    'en': ('English', 'Open in {ide}'),
+    'pt-BR': ('Portuguese (Brazil)', 'Abrir no {ide}'),
+    'es': ('Spanish', 'Abrir en {ide}'),
+    'fr': ('French', 'Ouvrir dans {ide}'),
+    'de': ('German', 'Öffnen mit {ide}'),
+    'it': ('Italian', 'Apri in {ide}'),
+}
 
 # The first launcher is also the executable name used inside standalone installs.
 IDES = {
@@ -39,13 +48,20 @@ def config_path():
     return Path(base) / 'phpstorm-nautilus' / 'shortcuts.json'
 
 
-def read_shortcuts(path=None):
+def read_settings(path=None):
     try:
-        shortcuts = json.loads((path or config_path()).read_text(encoding='utf-8'))
+        data = json.loads((path or config_path()).read_text(encoding='utf-8'))
     except FileNotFoundError:
         if path is not None:
             raise
-        return {'phpstorm': ('PhpStorm', '')}
+        return {'phpstorm': ('PhpStorm', '')}, DEFAULT_LANGUAGE
+
+    # Older versions stored the shortcuts directly at the root.
+    language = DEFAULT_LANGUAGE
+    shortcuts = data
+    if isinstance(data, dict) and 'shortcuts' in data:
+        shortcuts = data['shortcuts']
+        language = data.get('language', DEFAULT_LANGUAGE)
 
     if not isinstance(shortcuts, dict) or any(
         not isinstance(entry, list) or len(entry) != 2
@@ -53,17 +69,19 @@ def read_shortcuts(path=None):
         for entry in shortcuts.values()
     ):
         raise ValueError('Invalid shortcut configuration format.')
-    return shortcuts
+    if not isinstance(language, str) or language not in MENU_LANGUAGES:
+        language = DEFAULT_LANGUAGE
+    return shortcuts, language
 
 
-def save_shortcuts(shortcuts, path=None):
+def save_settings(shortcuts, language, path=None):
     path = path or config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile(
         mode='w', dir=path.parent, encoding='utf-8', delete=False,
     ) as staged:
         try:
-            json.dump(shortcuts, staged, ensure_ascii=False, indent=2)
+            json.dump({'language': language, 'shortcuts': shortcuts}, staged, ensure_ascii=False, indent=2)
             staged.write('\n')
             staged.close()
             os.replace(staged.name, path)
@@ -137,6 +155,57 @@ def write_terminal_line(screen, row, text, style=0):
         screen.addnstr(row, 0, text, width - 1, style)
 
 
+def move_terminal_cursor(key, cursor, size):
+    if key == curses.KEY_UP:
+        return max(0, cursor - 1)
+    if key == curses.KEY_DOWN:
+        return min(size - 1, cursor + 1)
+    if key == curses.KEY_HOME:
+        return 0
+    if key == curses.KEY_END:
+        return size - 1
+    return cursor
+
+
+def language_previews():
+    name_width = max(len(name) for name, _ in MENU_LANGUAGES.values())
+    return {
+        code: f'{name:<{name_width}}  |  {template.format(ide="PhpStorm")}'
+        for code, (name, template) in MENU_LANGUAGES.items()
+    }
+
+
+def pick_language_terminal(screen, language):
+    previews = language_previews()
+    codes = list(previews)
+    row_width = max(map(len, previews.values()))
+    cursor = codes.index(language)
+    first = 0
+    while True:
+        height, _ = screen.getmaxyx()
+        page_rows = max(1, height - 4)
+        first = max(cursor - page_rows + 1, min(first, cursor))
+        screen.erase()
+        write_terminal_line(screen, 0, '1/2  Choose Nautilus shortcut language', curses.A_BOLD)
+        write_terminal_line(screen, 1, '↑/↓ Navigate   Enter Continue   Esc/Q Cancel')
+        for row, code in enumerate(codes[first:first + page_rows], first):
+            selected = '*' if code == language else ' '
+            focus = row == cursor
+            write_terminal_line(
+                screen, row - first + 3,
+                f'{selected} {previews[code]:<{row_width}}',
+                curses.A_REVERSE if focus else curses.A_NORMAL,
+            )
+        screen.refresh()
+
+        key = screen.get_wch()
+        if key in ('\n', '\r', curses.KEY_ENTER):
+            return codes[cursor]
+        if key in ('q', 'Q', '\x1b'):
+            return None
+        cursor = move_terminal_cursor(key, cursor, len(codes))
+
+
 def read_terminal_field(screen, title, prompt):
     value = ''
     while True:
@@ -159,13 +228,18 @@ def read_terminal_field(screen, title, prompt):
             value += key
 
 
-def pick_shortcuts_terminal(screen, choices, marked, remove):
+def pick_shortcuts_terminal(screen, choices, marked, remove, language):
     try:
         curses.curs_set(0)
     except curses.error:
         pass
 
-    title = 'Remove Nautilus shortcuts' if remove else 'Choose Nautilus shortcuts'
+    if not remove:
+        language = pick_language_terminal(screen, language)
+        if language is None:
+            return None
+
+    title = 'Remove Nautilus shortcuts' if remove else '2/2  Choose Nautilus shortcuts'
     cursor = first = 0
     error = ''
     while True:
@@ -176,8 +250,10 @@ def pick_shortcuts_terminal(screen, choices, marked, remove):
         screen.erase()
         write_terminal_line(screen, 0, title, curses.A_BOLD)
         write_terminal_line(screen, 1, '↑/↓ Navigate   Space Toggle selection')
-        help_line = 'Enter Remove   Esc/Q Cancel' if remove else 'Enter Save   Esc/Q Cancel   A Add IDE'
+        help_line = 'Enter Remove   Esc/Q Cancel' if remove else 'Enter Save   Esc/Q Cancel'
         write_terminal_line(screen, 2, help_line)
+        if not remove:
+            write_terminal_line(screen, 3, f'A Add IDE   Language: {MENU_LANGUAGES[language][0]}')
         if not ids:
             write_terminal_line(screen, 4, 'No IDEs detected. Press A to add one.')
         for row, ide_id in enumerate(ids[first:first + page_rows], first):
@@ -197,9 +273,9 @@ def pick_shortcuts_terminal(screen, choices, marked, remove):
         key = screen.get_wch()
         error = ''
         if key in ('\n', '\r', curses.KEY_ENTER):
-            return True
+            return language
         if key in ('q', 'Q', '\x1b'):
-            return False
+            return None
         if key in ('a', 'A') and not remove:
             label = read_terminal_field(screen, 'Add IDE', 'IDE name')
             if label is None:
@@ -215,19 +291,36 @@ def pick_shortcuts_terminal(screen, choices, marked, remove):
             continue
         if key == ' ':
             marked.symmetric_difference_update({ids[cursor]})
-        elif key == curses.KEY_UP:
-            cursor = max(0, cursor - 1)
-        elif key == curses.KEY_DOWN:
-            cursor = min(len(ids) - 1, cursor + 1)
-        elif key == curses.KEY_HOME:
-            cursor = 0
-        elif key == curses.KEY_END:
-            cursor = len(ids) - 1
+        else:
+            cursor = move_terminal_cursor(key, cursor, len(ids))
 
 
-def pick_shortcuts_numbered(choices, marked, remove):
+def pick_language_numbered(language):
+    previews = language_previews()
+    codes = {str(index): code for index, code in enumerate(previews, 1)}
+    print('\n1/2  Choose Nautilus shortcut language')
+    for index, code in codes.items():
+        selected = '*' if code == language else ' '
+        print(f'  {index}. {selected} {previews[code]}')
     while True:
-        print('\nSelect the shortcuts to remove.' if remove else '\nSelect the shortcuts to show in Nautilus.')
+        action = input('Number to select, Enter to keep the current language, q to cancel: ').strip().lower()
+        if action == 'q':
+            return None
+        if not action:
+            return language
+        if action in codes:
+            return codes[action]
+        print('Invalid option.')
+
+
+def pick_shortcuts_numbered(choices, marked, remove, language):
+    if not remove:
+        language = pick_language_numbered(language)
+        if language is None:
+            return None
+
+    while True:
+        print('\nSelect the shortcuts to remove.' if remove else '\n2/2  Choose Nautilus shortcuts')
         if not choices:
             print('No IDEs detected.')
         ids = list(choices)
@@ -235,12 +328,14 @@ def pick_shortcuts_numbered(choices, marked, remove):
             check = 'x' if ide_id in marked else ' '
             print(f'  {index:2}. [{check}] {shortcut_label(ide_id, choices)}')
 
+        if not remove:
+            print(f'Menu language: {MENU_LANGUAGES[language][0]}')
         extra = '' if remove else ', a to add an IDE'
         action = input(f'Number to toggle{extra}, Enter to confirm, q to cancel: ').strip().lower()
         if action == 'q':
-            return False
+            return None
         if not action:
-            return True
+            return language
         if action == 'a' and not remove:
             label = input('IDE name: ')
             path = input('Full path to the executable: ')
@@ -257,18 +352,18 @@ def pick_shortcuts_numbered(choices, marked, remove):
             print('Invalid option.')
 
 
-def pick_shortcuts(choices, marked, remove):
+def pick_shortcuts(choices, marked, remove, language):
     terminal = os.environ.get('TERM')
     if curses and sys.stdin.isatty() and sys.stdout.isatty() and terminal not in (None, '', 'dumb'):
         try:
-            return curses.wrapper(pick_shortcuts_terminal, choices, marked, remove)
+            return curses.wrapper(pick_shortcuts_terminal, choices, marked, remove, language)
         except curses.error:
             pass
-    return pick_shortcuts_numbered(choices, marked, remove)
+    return pick_shortcuts_numbered(choices, marked, remove, language)
 
 
 def manage_shortcuts(remove, destination=None):
-    shortcuts = read_shortcuts()
+    shortcuts, language = read_settings()
     choices = dict(shortcuts)
     if not remove:
         for ide_id, (label, _) in IDES.items():
@@ -285,11 +380,13 @@ def manage_shortcuts(remove, destination=None):
         print('No shortcuts configured.')
         return True
 
-    if not pick_shortcuts(choices, marked, remove):
+    language = pick_shortcuts(choices, marked, remove, language)
+    if language is None:
         return False
 
     kept = set(choices).difference(marked) if remove else marked
-    save_shortcuts({ide_id: entry for ide_id, entry in choices.items() if ide_id in kept}, destination)
+    selection = {ide_id: entry for ide_id, entry in choices.items() if ide_id in kept}
+    save_settings(selection, language, destination)
     if destination is None:
         print('Shortcuts removed.' if remove and marked else 'Shortcuts saved.')
     return True
@@ -305,7 +402,7 @@ def shortcut_cli(args):
 
     try:
         if args[0] == '--apply-selection':
-            save_shortcuts(read_shortcuts(destination))
+            save_settings(*read_settings(destination))
             return 0
         confirmed = manage_shortcuts(remove=args[0] == '--remove', destination=destination)
     except (EOFError, KeyboardInterrupt):
@@ -453,18 +550,19 @@ class PhpStormExtension(GObject.GObject, Nautilus.MenuProvider):
             return []
 
         try:
-            shortcuts = read_shortcuts()
+            shortcuts, language = read_settings()
         except (OSError, ValueError) as error:
             print(f'Could not read the IDE shortcuts. {error}', file=sys.stderr)
             return []
 
+        _, template = MENU_LANGUAGES[language]
         items = []
         for ide_id, (label, saved_path) in shortcuts.items():
             launcher = find_launcher(ide_id, saved_path)
             if launcher:
                 item = Nautilus.MenuItem(
                     name=f'PhpStormExtension::{context}_{ide_id}',
-                    label=f'Open in {label}',
+                    label=template.format(ide=label),
                 )
                 item.connect('activate', self.launch_ide, ide_id, label, launcher, paths)
                 items.append(item)

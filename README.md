@@ -27,7 +27,7 @@ On other distributions, install the Nautilus Python bindings and Zenity through 
 
 ## Managing shortcuts
 
-The installer opens an interactive list of detected IDEs. Use **↑/↓** to navigate, **Space** to toggle a shortcut, **Enter** to confirm, and **Esc** or **Q** to cancel. The controls are also shown on screen. Terminals without support for the interactive screen use numbered choices. PhpStorm is selected on first setup when detected.
+The installer opens the shortcut language selector first, then shows the detected IDEs. Use **↑/↓** to navigate, **Space** to toggle a shortcut, **Enter** to confirm, and **Esc** or **Q** to cancel. Terminals without support for the interactive screen use numbered choices. PhpStorm is selected on first setup when detected.
 
 Detection covers OpenIDEA, IntelliJ IDEA, PhpStorm, PyCharm, WebStorm, CLion, GoLand, Rider, RubyMine, DataGrip, DataSpell, RustRover, Aqua, Android Studio, Visual Studio Code, and VSCodium. It looks for launchers on `PATH`, in `~/.local/bin`, and in known Toolbox, Snap, and `/opt` locations. It also checks `~/Applications` for the OpenIDEA AppImage. Enter `a` to add an IDE by name and full executable path if it does not appear.
 
@@ -37,6 +37,12 @@ bash install.sh --remove     # Mark shortcuts to remove
 ```
 
 These commands update the menu without uninstalling any IDEs. Reinstalling preserves existing selections. If a selected IDE becomes unavailable, its shortcut is hidden until the executable is available again. The selection is stored in `${XDG_CONFIG_HOME:-$HOME/.config}/phpstorm-nautilus/shortcuts.json`. When installing without an interactive terminal, run `--configure` afterwards to select shortcuts.
+
+### Shortcut language
+
+During installation or when running `bash install.sh --configure`, preview and select the language for all IDE shortcut labels in Nautilus. Press **Enter** to continue to the IDE list, then press **Enter** again to save both selections. The selector highlights the saved language when you return.
+
+English is the default. Other options are Brazilian Portuguese, Spanish, French, German, and Italian. The terminal interface and installer messages are in English.
 
 ### Custom PhpStorm launcher
 
